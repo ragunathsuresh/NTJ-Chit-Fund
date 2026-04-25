@@ -13,8 +13,10 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 
 const OrdersScreen = ({ navigation }) => {
+    const { colors } = useTheme();
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -46,13 +48,20 @@ const OrdersScreen = ({ navigation }) => {
         applyFilters(orders, activeFilter);
     }, [activeFilter, orders]);
 
+    const normalizeStatus = (status) => {
+        const value = String(status || '').trim().toLowerCase();
+        if (['success', 'approved', 'completed'].includes(value)) return 'Success';
+        if (['failed', 'rejected'].includes(value)) return 'Failed';
+        return 'Pending';
+    };
+
     const applyFilters = (data, filter) => {
         let result = data;
         if (filter === 'Gold') result = data.filter(o => o.metalType === 'gold');
         else if (filter === 'Silver') result = data.filter(o => o.metalType === 'silver');
-        else if (filter === 'Pending') result = data.filter(o => o.status === 'Pending');
-        else if (filter === 'Success') result = data.filter(o => o.status === 'Success');
-        else if (filter === 'Failed') result = data.filter(o => o.status === 'Failed');
+        else if (filter === 'Pending') result = data.filter(o => normalizeStatus(o.status) === 'Pending');
+        else if (filter === 'Success') result = data.filter(o => normalizeStatus(o.status) === 'Success');
+        else if (filter === 'Failed') result = data.filter(o => normalizeStatus(o.status) === 'Failed');
 
         setFilteredOrders(result);
     };
@@ -65,24 +74,25 @@ const OrdersScreen = ({ navigation }) => {
     const renderOrderItem = ({ item }) => {
         const isGold = item.metalType === 'gold';
         const color = isGold ? '#2e7d32' : '#81c784';
+        const normalizedStatus = normalizeStatus(item.status);
         const statusColor =
-            item.status === 'Success' ? '#43a047' :
-                item.status === 'Failed' ? '#e53935' : '#fb8c00';
+            normalizedStatus === 'Success' ? '#16a34a' :
+                normalizedStatus === 'Failed' ? '#e53935' : '#fb8c00';
 
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <View style={styles.cardHeader}>
                     <View style={styles.iconRow}>
                         <View style={[styles.iconContainer, { backgroundColor: '#333' }]}>
                             <Text style={[styles.iconText, { color }]}>{isGold ? '$' : '●'}</Text>
                         </View>
                         <View>
-                            <Text style={styles.itemTitle}>{item.metalName || (isGold ? 'Digital Gold 24k' : 'Digital Silver 999')}</Text>
-                            <Text style={styles.itemOrderId}>#{item.orderId || 'ORD-UNKNOWN'}</Text>
+                            <Text style={[styles.itemTitle, { color: colors.text }]}>{item.metalName || (isGold ? 'Digital Gold 24k' : 'Digital Silver 999')}</Text>
+                            <Text style={[styles.itemOrderId, { color: colors.textSecondary }]}>#{item.orderId || 'ORD-UNKNOWN'}</Text>
                         </View>
                     </View>
                     <View style={[styles.badge, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
-                        <Text style={[styles.badgeText, { color: statusColor }]}>{item.status}</Text>
+                        <Text style={[styles.badgeText, { color: statusColor }]}>{normalizedStatus}</Text>
                     </View>
                 </View>
 
@@ -90,19 +100,19 @@ const OrdersScreen = ({ navigation }) => {
 
                 <View style={styles.detailsRow}>
                     <View>
-                        <Text style={styles.amountLabel}>AMOUNT PAID</Text>
+                        <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>AMOUNT PAID</Text>
                         <Text style={[
                             styles.amountValue,
-                            item.status === 'Failed' && styles.strikethrough
+                            normalizedStatus === 'Failed' && styles.strikethrough
                         ]}>
                             ₹{item.amountPaid?.toLocaleString()}
                         </Text>
                     </View>
                     <View style={styles.rightDetails}>
-                        <Text style={styles.rateDetails}>
+                        <Text style={[styles.rateDetails, { color: colors.textSecondary }]}>
                             {item.gramsCredited}g @ ₹{item.ratePerGram}/g
                         </Text>
-                        <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
+                        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{formatDate(item.createdAt)}</Text>
                     </View>
                 </View>
             </View>
@@ -119,13 +129,13 @@ const OrdersScreen = ({ navigation }) => {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#2e7d32" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>My Orders</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>My Orders</Text>
                 <TouchableOpacity onPress={() => setShowFilterModal(true)}>
                     <Ionicons name="filter" size={24} color="#2e7d32" />
                 </TouchableOpacity>
@@ -146,7 +156,7 @@ const OrdersScreen = ({ navigation }) => {
             {/* Orders List */}
             {loading ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#2e7d32" />
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : (
                 <FlatList
@@ -156,7 +166,7 @@ const OrdersScreen = ({ navigation }) => {
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
                         <View style={styles.center}>
-                            <Text style={styles.emptyText}>No orders found</Text>
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No orders found</Text>
                         </View>
                     }
                     refreshing={loading}
@@ -171,15 +181,15 @@ const OrdersScreen = ({ navigation }) => {
                 onRequestClose={() => setShowFilterModal(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Filter Orders</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Orders</Text>
                             <TouchableOpacity onPress={() => setShowFilterModal(false)}>
                                 <Ionicons name="close" size={24} color="#FFF" />
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.filterLabel}>Status</Text>
+                        <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Status</Text>
                         <View style={styles.filterRow}>
                             {['All', 'Pending', 'Success', 'Failed'].map(status => (
                                 <TouchableOpacity
@@ -192,7 +202,7 @@ const OrdersScreen = ({ navigation }) => {
                             ))}
                         </View>
 
-                        <Text style={styles.filterLabel}>Metal Type</Text>
+                        <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Metal Type</Text>
                         <View style={styles.filterRow}>
                             {['Gold', 'Silver'].map(metal => (
                                 <TouchableOpacity

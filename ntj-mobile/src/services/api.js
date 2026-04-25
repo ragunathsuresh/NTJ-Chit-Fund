@@ -10,7 +10,7 @@ const getApiUrl = () => {
     }
     const configured = Constants.expoConfig?.extra?.apiUrl;
     console.log('[API] Configured URL from app.config:', configured);
-    return configured || 'http://192.168.1.6:5000/api';
+    return configured || 'http://10.164.113.121:5000/api';
 };
 
 const API_URL = getApiUrl();

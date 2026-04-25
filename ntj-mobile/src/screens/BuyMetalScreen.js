@@ -103,30 +103,76 @@ const BuyMetalScreen = ({ navigation, route }) => {
     const gstAmount = baseAmount * gstRate;
     const totalPayable = baseAmount + gstAmount;
 
-    // UPI priority: 1) Active config from upi_configs (admin-set), 2) Plan-specific UPI, 3) Hardcoded fallback
-    const adminUpiId = upiConfig?.upiId
-        || route?.params?.adminUpiId
-        || "ragusuresh291-2@oksbi";
-    const adminName = upiConfig?.label || "NTJ Jewellery";
+    // Only use the admin-selected active UPI config from the database.
+    const adminUpiId = upiConfig?.upiId?.trim() || '';
+    const adminName = upiConfig?.label?.trim() || 'NTJ Jewellery';
     const chitFundMonth = route?.params?.chitFundMonth || null;
     const chitFundTotalMonths = route?.params?.chitFundTotalMonths || null;
     const isChitFundPayment = !!route?.params?.chitFundPlanId;
 
-    const handleUpiApp = () => {
-        if (!adminUpiId) {
+    const getPaymentNote = () => (
+        isChitFundPayment
+            ? `ChitFund Month ${chitFundMonth}`
+            : `Metal Purchase ${Date.now()}`
+    );
+
+    const getFormattedAmount = () => Number(totalPayable).toFixed(2);
+
+    const buildUpiUrl = () => {
+        const cleanUpiId = (adminUpiId || '').trim();
+        const cleanName = (adminName || 'NTJ Jewellery').trim();
+        const cleanNote = getPaymentNote().trim();
+        const formattedAmount = getFormattedAmount();
+
+        const params = [
+            ['pa', cleanUpiId],
+            ['pn', cleanName],
+            ['am', formattedAmount],
+            ['cu', 'INR'],
+            ['tn', cleanNote],
+        ];
+
+        return `upi://pay?${params
+            .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+            .join('&')}`;
+    };
+
+    const handleUpiApp = async () => {
+        if (upiLoading) {
             Alert.alert(
-                'UPI Not Configured',
-                'The admin has not set up a UPI payment account yet. Please contact support.',
+                'Loading Payment Details',
+                'Please wait while we fetch the active UPI ID from the admin settings.',
             );
             return;
         }
-        const note = isChitFundPayment
-            ? `ChitFund-Month${chitFundMonth}of${chitFundTotalMonths}`
-            : `Order-${Date.now()}`;
-        const upiUrl = `upi://pay?pa=${adminUpiId}&pn=${encodeURIComponent(adminName)}&am=${totalPayable.toFixed(2)}&tn=${encodeURIComponent(note)}&cu=INR`;
-        Linking.openURL(upiUrl).catch(() => {
-            Alert.alert("No UPI App", `Please pay manually to: ${adminUpiId}\n\nAmount: ₹${totalPayable.toFixed(2)}`);
-        });
+
+        if (!adminUpiId) {
+            Alert.alert(
+                'UPI Not Configured',
+                'No active UPI payment account is configured by admin. Please contact support.',
+            );
+            return;
+        }
+        const upiUrl = buildUpiUrl();
+        const formattedAmount = getFormattedAmount();
+
+        try {
+            const canOpen = await Linking.canOpenURL(upiUrl);
+            if (!canOpen) {
+                Alert.alert(
+                    "No UPI App",
+                    `No supported UPI app was found. Please pay manually to: ${adminUpiId}\n\nAmount: Rs ${formattedAmount}`
+                );
+                return;
+            }
+
+            await Linking.openURL(upiUrl);
+        } catch (error) {
+            Alert.alert(
+                "UPI Payment Error",
+                `Could not open the UPI app. Please pay manually to: ${adminUpiId}\n\nAmount: Rs ${formattedAmount}`
+            );
+        }
     };
 
     const handleNext = () => {
@@ -352,6 +398,7 @@ const BuyMetalScreen = ({ navigation, route }) => {
                             <TouchableOpacity
                                 style={styles.payUpiButton}
                                 onPress={handleUpiApp}
+                                disabled={upiLoading || !adminUpiId}
                             >
                                 <View style={styles.payUpiIconContainer}>
                                     <Ionicons name="apps" size={24} color="#000" />
@@ -368,7 +415,25 @@ const BuyMetalScreen = ({ navigation, route }) => {
 
                             <TouchableOpacity
                                 style={styles.showQrButton}
-                                onPress={() => setShowQr(!showQr)}
+                                onPress={() => {
+                                    if (upiLoading) {
+                                        Alert.alert(
+                                            'Loading Payment Details',
+                                            'Please wait while we fetch the active UPI ID from the admin settings.',
+                                        );
+                                        return;
+                                    }
+
+                                    if (!adminUpiId) {
+                                        Alert.alert(
+                                            'UPI Not Configured',
+                                            'No active UPI payment account is configured by admin. Please contact support.',
+                                        );
+                                        return;
+                                    }
+
+                                    setShowQr(!showQr);
+                                }}
                             >
                                 <Ionicons name={showQr ? "qr-code-outline" : "qr-code"} size={20} color="#2e7d32" />
                                 <Text style={styles.showQrText}>{showQr ? "Hide QR Code" : "Show QR Code"}</Text>
@@ -378,7 +443,7 @@ const BuyMetalScreen = ({ navigation, route }) => {
                             {showQr && (
                                 <View style={styles.qrContainer}>
                                     <QRCode
-                                        value={`upi://pay?pa=${adminUpiId}&pn=${adminName}&am=${totalPayable}&tn=Order-${Date.now()}`}
+                                        value={buildUpiUrl()}
                                         size={200}
                                         color="black"
                                         backgroundColor="white"

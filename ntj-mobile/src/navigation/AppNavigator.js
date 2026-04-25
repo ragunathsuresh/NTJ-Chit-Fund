@@ -66,6 +66,8 @@ function MainTabNavigator() {
                         iconName = focused ? 'home' : 'home-outline';
                     } else if (route.name === 'Portfolio') {
                         iconName = focused ? 'pie-chart' : 'pie-chart-outline';
+                    } else if (route.name === 'AllPlansTab') {
+                        iconName = focused ? 'bar-chart' : 'bar-chart-outline';
                     } else if (route.name === 'Profile') {
                         iconName = focused ? 'person' : 'person-outline';
                     } else if (route.name === 'Orders') {
@@ -78,6 +80,11 @@ function MainTabNavigator() {
             <Tab.Screen name="Home" component={HomeScreen} />
             <Tab.Screen name="Orders" component={OrdersScreen} />
             <Tab.Screen name="Portfolio" component={PortfolioScreen} />
+            <Tab.Screen
+                name="AllPlansTab"
+                component={AllPlansScreen}
+                options={{ title: 'All Plans' }}
+            />
             <Tab.Screen name="Profile" component={ProfileScreen} />
         </Tab.Navigator>
     );

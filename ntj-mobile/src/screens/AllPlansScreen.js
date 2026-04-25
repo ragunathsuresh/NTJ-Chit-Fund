@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import chitFundService from '../services/chitFundService';
 import api from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 const STATUS_CFG = {
     active:    { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  label: 'Active' },
@@ -19,6 +20,7 @@ const STATUS_CFG = {
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 export default function AllPlansScreen({ navigation }) {
+    const { colors } = useTheme();
     const [plans, setPlans] = useState([]);
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -159,9 +161,9 @@ export default function AllPlansScreen({ navigation }) {
 
     if (isLoading) {
         return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.cardBackground }]}>
                 <ActivityIndicator size="large" color="#2e7d32" />
-                <Text style={{ color: '#81c784', marginTop: 12, fontWeight: '600' }}>Loading plans...</Text>
+                <Text style={{ color: colors.textSecondary, marginTop: 12, fontWeight: '600' }}>Loading plans...</Text>
             </View>
         );
     }
@@ -170,15 +172,15 @@ export default function AllPlansScreen({ navigation }) {
     const totals = getTotals(tableRows);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color="#2e7d32" />
                 </TouchableOpacity>
                 <View>
-                    <Text style={styles.headerTitle}>All Plans</Text>
-                    <Text style={styles.headerSub}>{plans.length} plan{plans.length !== 1 ? 's' : ''} total</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>All Plans</Text>
+                    <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{plans.length} plan{plans.length !== 1 ? 's' : ''} total</Text>
                 </View>
                 <TouchableOpacity onPress={onRefresh}>
                     <Ionicons name="refresh" size={22} color="#2e7d32" />
@@ -186,18 +188,18 @@ export default function AllPlansScreen({ navigation }) {
             </View>
 
             {/* Search Bar */}
-            <View style={styles.searchRow}>
-                <Ionicons name="search" size={18} color="#81c784" style={{ marginRight: 8 }} />
+            <View style={[styles.searchRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
                 <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { color: colors.text }]}
                     placeholder="Search by plan name or metal..."
-                    placeholderTextColor="#81c784"
+                    placeholderTextColor={colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons name="close-circle" size={18} color="#81c784" />
+                        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -226,7 +228,7 @@ export default function AllPlansScreen({ navigation }) {
                         return (
                             <TouchableOpacity
                                 key={plan._id}
-                                style={styles.planCard}
+                                style={[styles.planCard, { backgroundColor: colors.background, borderColor: colors.border }]}
                                 onPress={() => handlePlanPress(plan)}
                                 activeOpacity={0.82}
                             >
@@ -291,9 +293,9 @@ export default function AllPlansScreen({ navigation }) {
 
             {/* ── Plan Detail Modal ─────────────────────────────── */}
             <Modal visible={modalVisible} animationType="slide" transparent={false} onRequestClose={() => setModalVisible(false)}>
-                <View style={styles.modalContainer}>
+                <View style={[styles.modalContainer, { backgroundColor: colors.cardBackground }]}>
                     {/* Modal Header */}
-                    <View style={styles.modalHeader}>
+                    <View style={[styles.modalHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
                         <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.backBtn}>
                             <Ionicons name="arrow-back" size={24} color="#2e7d32" />
                         </TouchableOpacity>
@@ -310,7 +312,7 @@ export default function AllPlansScreen({ navigation }) {
                     <ScrollView contentContainerStyle={styles.modalScroll}>
                         {/* Plan Summary Card */}
                         {selectedPlan && (
-                            <View style={styles.summaryCard}>
+                            <View style={[styles.summaryCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                                 {[
                                     ['Metal', selectedPlan.metalType === 'gold' ? '🪙 Gold' : '⚪ Silver'],
                                     ['Status', STATUS_CFG[selectedPlan.status]?.label || selectedPlan.status],
@@ -331,7 +333,7 @@ export default function AllPlansScreen({ navigation }) {
                         <Text style={styles.tableTitle}>📊 Transaction Details</Text>
 
                         {tableRows.length === 0 ? (
-                            <View style={styles.emptyTable}>
+                            <View style={[styles.emptyTable, { backgroundColor: colors.background, borderColor: colors.border }]}>
                                 <Ionicons name="receipt-outline" size={36} color="#c8e6c9" />
                                 <Text style={styles.emptyTableText}>No transactions recorded yet</Text>
                                 <Text style={{ color: '#81c784', fontSize: 12, textAlign: 'center', marginTop: 4 }}>
@@ -339,7 +341,7 @@ export default function AllPlansScreen({ navigation }) {
                                 </Text>
                             </View>
                         ) : (
-                            <View style={styles.table}>
+                            <View style={[styles.table, { backgroundColor: colors.background, borderColor: colors.border }]}>
                                 {/* Table Header */}
                                 <View style={[styles.tableRow, styles.tableHeaderRow]}>
                                     <Text style={[styles.tableCell, styles.thCell, { width: 34 }]}>S.No</Text>
@@ -386,7 +388,7 @@ export default function AllPlansScreen({ navigation }) {
 
                         {/* Metal Breakdown */}
                         {tableRows.length > 0 && (
-                            <View style={styles.breakdownCard}>
+                            <View style={[styles.breakdownCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                                 <Text style={styles.breakdownTitle}>💰 Summary</Text>
                                 <View style={styles.summaryRow}>
                                     <Text style={styles.summaryLabel}>Months Paid</Text>

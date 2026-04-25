@@ -40,8 +40,7 @@ const chitFundSchema = new mongoose.Schema({
     totalMonths: {
         type: Number,
         required: true,
-        min: [1, 'Minimum 1 month'],
-        max: [36, 'Maximum 36 months']
+        min: [1, 'Minimum 1 month']
     },
     totalAmount: {
         type: Number   // monthlyAmount * totalMonths

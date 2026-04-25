@@ -7,54 +7,82 @@ import {
     TouchableOpacity,
     Image,
     RefreshControl,
-    ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import marketService from '../services/marketService';
 import api from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 const PortfolioScreen = ({ navigation }) => {
+    const { colors } = useTheme();
     const { user, refreshUser } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
     const [rates, setRates] = useState({ gold: null, silver: null });
-    // Direct balance from DB — always accurate
-    const [balance, setBalance] = useState({ goldBalance: 0, silverBalance: 0, loaded: false });
+    const [invested, setInvested] = useState({ goldAmount: 0, silverAmount: 0, loaded: false });
 
-    // ── Fetch fresh balance + rates every time screen is focused ──────
     useFocusEffect(
         useCallback(() => {
-            fetchBalance();
+            fetchInvestedAmounts();
             fetchRates();
-            refreshUser(); // also refresh context for other screens
+            refreshUser();
         }, [])
     );
 
-    const fetchBalance = async () => {
+    const normalizeStatus = (status) => {
+        const value = String(status || '').trim().toLowerCase();
+        if (['success', 'approved', 'completed'].includes(value)) return 'Success';
+        if (['failed', 'rejected'].includes(value)) return 'Failed';
+        return 'Pending';
+    };
+
+    const fetchInvestedAmounts = async () => {
         try {
-            const res = await api.get('/orders/balance');
+            const res = await api.get('/orders');
             if (res.data?.success) {
-                setBalance({
-                    goldBalance: res.data.data.goldBalance || 0,
-                    silverBalance: res.data.data.silverBalance || 0,
+                const summary = (res.data.data || []).reduce((acc, order) => {
+                    if (normalizeStatus(order.status) !== 'Success') {
+                        return acc;
+                    }
+
+                    const paid = parseFloat(order.amountPaid || 0);
+                    const grams = parseFloat(order.gramsCredited || 0);
+                    const rate = parseFloat(order.ratePerGram || 0);
+                    const orderAmount = paid > 0 ? paid : (grams * rate);
+
+                    if (order.metalType === 'gold') {
+                        acc.goldAmount += orderAmount;
+                    } else if (order.metalType === 'silver') {
+                        acc.silverAmount += orderAmount;
+                    }
+                    return acc;
+                }, { goldAmount: 0, silverAmount: 0 });
+
+                setInvested({
+                    goldAmount: summary.goldAmount,
+                    silverAmount: summary.silverAmount,
                     loaded: true,
                 });
+                return;
             }
         } catch (e) {
-            // fallback to user context
-            setBalance({
-                goldBalance: user?.goldBalance || 0,
-                silverBalance: user?.silverBalance || 0,
-                loaded: true,
-            });
+            // Ignore and fall back to zero values below.
         }
+
+        setInvested({
+            goldAmount: 0,
+            silverAmount: 0,
+            loaded: true,
+        });
     };
 
     const fetchRates = async () => {
         try {
             const data = await marketService.getRates();
-            if (data.success) setRates(data.data);
+            if (data.success) {
+                setRates(data.data);
+            }
         } catch (e) {
             // non-critical
         }
@@ -62,42 +90,28 @@ const PortfolioScreen = ({ navigation }) => {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchBalance(), fetchRates(), refreshUser()]);
+        await Promise.all([fetchInvestedAmounts(), fetchRates(), refreshUser()]);
         setRefreshing(false);
     }, []);
 
-    // Use direct DB balance (most accurate)
-    const goldQuantity = balance.loaded ? parseFloat(balance.goldBalance) : parseFloat(user?.goldBalance || 0);
-    const silverQuantity = balance.loaded ? parseFloat(balance.silverBalance) : parseFloat(user?.silverBalance || 0);
-
-    // Use live rates or fallback to sensible defaults
     const goldCurrentPrice = parseFloat(rates.gold?.sellPrice || 7500);
     const silverCurrentPrice = parseFloat(rates.silver?.sellPrice || 85);
 
-    const goldAvgBuyPrice = 7200;
-    const silverAvgBuyPrice = 80;
+    const goldAmount = invested.loaded ? parseFloat(invested.goldAmount || 0) : 0;
+    const silverAmount = invested.loaded ? parseFloat(invested.silverAmount || 0) : 0;
+    const totalInvested = goldAmount + silverAmount;
 
-    const goldMarketValue = goldQuantity * goldCurrentPrice;
-    const silverMarketValue = silverQuantity * silverCurrentPrice;
-    const totalBalance = goldMarketValue + silverMarketValue;
+    // Grams are derived from cumulative invested amount using the latest rate.
+    const goldQuantity = goldCurrentPrice > 0 ? goldAmount / goldCurrentPrice : 0;
+    const silverQuantity = silverCurrentPrice > 0 ? silverAmount / silverCurrentPrice : 0;
 
-    const goldUnrealizedPnL = (goldCurrentPrice - goldAvgBuyPrice) * goldQuantity;
-    const goldPnLPercent = goldAvgBuyPrice > 0
-        ? ((goldCurrentPrice - goldAvgBuyPrice) / goldAvgBuyPrice) * 100 : 0;
-
-    const silverUnrealizedPnL = (silverCurrentPrice - silverAvgBuyPrice) * silverQuantity;
-    const silverPnLPercent = silverAvgBuyPrice > 0
-        ? ((silverCurrentPrice - silverAvgBuyPrice) / silverAvgBuyPrice) * 100 : 0;
-
-    const goldPercent = totalBalance > 0 ? (goldMarketValue / totalBalance) * 100 : 50;
-    const silverPercent = totalBalance > 0 ? (silverMarketValue / totalBalance) * 100 : 50;
-
-    const change24h = { amount: 5400, percent: 1.2 };
+    const goldPercent = totalInvested > 0 ? (goldAmount / totalInvested) * 100 : 50;
+    const silverPercent = totalInvested > 0 ? (silverAmount / totalInvested) * 100 : 50;
 
     const formatCurrency = (amount) => {
-        if (!amount && amount !== 0) return '₹0';
+        if (!amount && amount !== 0) return 'Rs 0';
         const num = parseFloat(amount);
-        return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return 'Rs ' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
     const formatQuantity = (amount) => {
@@ -107,8 +121,7 @@ const PortfolioScreen = ({ navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
-            {/* Header */}
+        <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
                     {user?.profilePhoto ? (
@@ -120,13 +133,13 @@ const PortfolioScreen = ({ navigation }) => {
                         />
                     )}
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>My Portfolio</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>My Portfolio</Text>
                 <View style={styles.headerIcons}>
                     <TouchableOpacity
                         onPress={() => navigation.navigate('AppSettings')}
                         style={styles.iconButton}
                     >
-                        <Ionicons name="settings-outline" size={24} color="#2e7d32" />
+                            <Ionicons name="settings-outline" size={24} color={colors.primary} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -137,41 +150,21 @@ const PortfolioScreen = ({ navigation }) => {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor="#2e7d32"
-                        colors={['#2e7d32']}
+                        tintColor={colors.primary}
+                        colors={[colors.primary]}
                     />
                 }
             >
-                {/* Total Balance */}
                 <View style={styles.totalBalanceSection}>
-                    <Text style={styles.totalBalanceLabel}>TOTAL BALANCE</Text>
-                    <Text style={styles.totalBalanceAmount}>{formatCurrency(totalBalance)}</Text>
-                    <View style={styles.changeIndicator}>
-                        <Ionicons
-                            name={change24h.percent >= 0 ? "arrow-up" : "arrow-down"}
-                            size={16}
-                            color={change24h.percent >= 0 ? "#4CAF50" : "#FF4444"}
-                        />
-                        <Text style={[
-                            styles.changeText,
-                            { color: change24h.percent >= 0 ? "#4CAF50" : "#FF4444" }
-                        ]}>
-                            {change24h.percent >= 0 ? '+' : ''}{change24h.percent.toFixed(1)}%
-                            ({change24h.percent >= 0 ? '+' : ''}{formatCurrency(change24h.amount)})
-                        </Text>
-                        <View style={styles.timeBadge}>
-                            <Text style={styles.timeBadgeText}>24h</Text>
-                        </View>
-                    </View>
-                    {/* Pull-to-refresh hint */}
-                    <Text style={styles.refreshHint}>↓ Pull down to refresh balance</Text>
+                    <Text style={[styles.totalBalanceLabel, { color: colors.textSecondary }]}>TOTAL AMOUNT</Text>
+                    <Text style={[styles.totalBalanceAmount, { color: colors.text }]}>{formatCurrency(totalInvested)}</Text>
+                    <Text style={[styles.refreshHint, { color: colors.textSecondary }]}>Includes cumulative approved past transactions</Text>
                 </View>
 
-                {/* Asset Allocation */}
-                <View style={styles.assetAllocationCard}>
+                <View style={[styles.assetAllocationCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={styles.allocationHeader}>
-                        <Text style={styles.allocationTitle}>Asset Allocation</Text>
-                        <Text style={styles.allocationPercentages}>
+                        <Text style={[styles.allocationTitle, { color: colors.text }]}>Asset Allocation</Text>
+                        <Text style={[styles.allocationPercentages, { color: colors.textSecondary }]}>
                             Gold {goldPercent.toFixed(0)}% · Silver {silverPercent.toFixed(0)}%
                         </Text>
                     </View>
@@ -184,28 +177,26 @@ const PortfolioScreen = ({ navigation }) => {
                     <View style={styles.legend}>
                         <View style={styles.legendItem}>
                             <View style={[styles.legendDot, { backgroundColor: '#2e7d32' }]} />
-                            <Text style={styles.legendText}>Gold</Text>
+                            <Text style={[styles.legendText, { color: colors.textSecondary }]}>Gold</Text>
                         </View>
                         <View style={styles.legendItem}>
                             <View style={[styles.legendDot, { backgroundColor: '#81c784' }]} />
-                            <Text style={styles.legendText}>Silver</Text>
+                            <Text style={[styles.legendText, { color: colors.textSecondary }]}>Silver</Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Metal Holdings */}
-                <Text style={styles.sectionTitle}>Metal Holdings</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Metal Holdings</Text>
 
-                {/* Gold Card */}
-                <View style={styles.holdingCard}>
+                <View style={[styles.holdingCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={styles.holdingHeader}>
                         <View style={styles.holdingTitleRow}>
                             <Ionicons name="medal" size={20} color="#FFD700" />
-                            <Text style={styles.holdingLabel}>24K GOLD</Text>
+                            <Text style={[styles.holdingLabel, { color: colors.textSecondary }]}>24K GOLD</Text>
                         </View>
                         <View style={styles.marketValueSection}>
-                            <Text style={styles.marketValueLabel}>Market Value</Text>
-                            <Text style={styles.marketValue}>{formatCurrency(goldMarketValue)}</Text>
+                            <Text style={[styles.marketValueLabel, { color: colors.textSecondary }]}>Amount</Text>
+                            <Text style={[styles.marketValue, { color: colors.text }]}>{formatCurrency(goldAmount)}</Text>
                         </View>
                     </View>
 
@@ -213,32 +204,21 @@ const PortfolioScreen = ({ navigation }) => {
 
                     <View style={styles.holdingFooter}>
                         <View>
-                            <Text style={styles.footerLabel}>AVG. BUY PRICE</Text>
-                            <Text style={styles.footerValue}>{formatCurrency(goldAvgBuyPrice)}/g</Text>
-                        </View>
-                        <View style={styles.pnlSection}>
-                            <Text style={styles.footerLabel}>UNREALIZED P&L</Text>
-                            <Text style={[
-                                styles.pnlValue,
-                                { color: goldUnrealizedPnL >= 0 ? '#4CAF50' : '#FF4444' }
-                            ]}>
-                                {goldUnrealizedPnL >= 0 ? '+' : ''}{formatCurrency(goldUnrealizedPnL)}
-                                ({goldPnLPercent >= 0 ? '+' : ''}{goldPnLPercent.toFixed(1)}%)
-                            </Text>
+                            <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>CURRENT GOLD RATE</Text>
+                            <Text style={[styles.footerValue, { color: colors.text }]}>{formatCurrency(goldCurrentPrice)}/g</Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Silver Card */}
-                <View style={styles.holdingCard}>
+                <View style={[styles.holdingCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={styles.holdingHeader}>
                         <View style={styles.holdingTitleRow}>
                             <Ionicons name="diamond-outline" size={20} color="#C0C0C0" />
-                            <Text style={styles.holdingLabel}>FINE SILVER</Text>
+                            <Text style={[styles.holdingLabel, { color: colors.textSecondary }]}>FINE SILVER</Text>
                         </View>
                         <View style={styles.marketValueSection}>
-                            <Text style={styles.marketValueLabel}>Market Value</Text>
-                            <Text style={styles.marketValue}>{formatCurrency(silverMarketValue)}</Text>
+                            <Text style={[styles.marketValueLabel, { color: colors.textSecondary }]}>Amount</Text>
+                            <Text style={[styles.marketValue, { color: colors.text }]}>{formatCurrency(silverAmount)}</Text>
                         </View>
                     </View>
 
@@ -246,18 +226,8 @@ const PortfolioScreen = ({ navigation }) => {
 
                     <View style={styles.holdingFooter}>
                         <View>
-                            <Text style={styles.footerLabel}>AVG. BUY PRICE</Text>
-                            <Text style={styles.footerValue}>{formatCurrency(silverAvgBuyPrice)}/g</Text>
-                        </View>
-                        <View style={styles.pnlSection}>
-                            <Text style={styles.footerLabel}>UNREALIZED P&L</Text>
-                            <Text style={[
-                                styles.pnlValue,
-                                { color: silverUnrealizedPnL >= 0 ? '#4CAF50' : '#FF4444' }
-                            ]}>
-                                {silverUnrealizedPnL >= 0 ? '+' : ''}{formatCurrency(silverUnrealizedPnL)}
-                                ({silverPnLPercent >= 0 ? '+' : ''}{silverPnLPercent.toFixed(1)}%)
-                            </Text>
+                            <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>CURRENT SILVER RATE</Text>
+                            <Text style={[styles.footerValue, { color: colors.text }]}>{formatCurrency(silverCurrentPrice)}/g</Text>
                         </View>
                     </View>
                 </View>
@@ -294,17 +264,10 @@ const styles = StyleSheet.create({
         letterSpacing: 1, marginBottom: 8
     },
     totalBalanceAmount: {
-        color: '#1b3223', fontSize: 36, fontWeight: 'bold', marginBottom: 12
+        color: '#1b3223', fontSize: 36, fontWeight: 'bold', marginBottom: 8
     },
-    changeIndicator: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    changeText: { fontSize: 14, fontWeight: '600' },
-    timeBadge: {
-        backgroundColor: '#e8f5e9', paddingHorizontal: 8,
-        paddingVertical: 2, borderRadius: 8, marginLeft: 4
-    },
-    timeBadgeText: { color: '#2e7d32', fontSize: 11, fontWeight: '700' },
     refreshHint: {
-        color: '#aaa', fontSize: 11, marginTop: 10, fontStyle: 'italic'
+        color: '#888', fontSize: 12, marginTop: 4, fontWeight: '600'
     },
     assetAllocationCard: {
         backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20,
@@ -354,8 +317,6 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5, fontWeight: 'bold'
     },
     footerValue: { color: '#1b3223', fontSize: 14, fontWeight: 'bold' },
-    pnlSection: { alignItems: 'flex-end' },
-    pnlValue: { fontSize: 14, fontWeight: 'bold' }
 });
 
 export default PortfolioScreen;

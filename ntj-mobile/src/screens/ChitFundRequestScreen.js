@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import chitFundService from '../services/chitFundService';
 import { useFocusEffect } from '@react-navigation/native';
 import { sendOrderNotification } from '../services/notificationService';
+import { useTheme } from '../context/ThemeContext';
 
 const MONTHS_OPTIONS = [3, 6, 12, 18, 24, 36];
 
@@ -21,6 +22,7 @@ const STATUS_CONFIG = {
 };
 
 export default function ChitFundRequestScreen({ navigation }) {
+    const { colors } = useTheme();
     const { user } = useAuth();
 
     // Tab state
@@ -37,6 +39,7 @@ export default function ChitFundRequestScreen({ navigation }) {
     const [requestName, setRequestName] = useState('');
     const [monthlyAmount, setMonthlyAmount] = useState('');
     const [totalMonths, setTotalMonths] = useState(12);
+    const [customMonths, setCustomMonths] = useState('');
     const [userNote, setUserNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -87,6 +90,10 @@ export default function ChitFundRequestScreen({ navigation }) {
             Alert.alert('Invalid Amount', 'Please enter a monthly amount of at least ₹100.');
             return;
         }
+        if (!totalMonths || !Number.isInteger(Number(totalMonths)) || Number(totalMonths) < 1) {
+            Alert.alert('Invalid Duration', 'Please enter a valid duration of at least 1 month.');
+            return;
+        }
         Alert.alert(
             'Confirm Request',
             `${metalType === 'gold' ? '🪙 Gold' : '⚪ Silver'} Chit Fund\n\n• Monthly: ₹${Number(monthlyAmount).toLocaleString('en-IN')}\n• Duration: ${totalMonths} months\n• Total: ₹${totalAmount.toLocaleString('en-IN')}\n\nSubmit for admin review?`,
@@ -113,6 +120,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                 setRequestName('');
                 setMonthlyAmount('');
                 setTotalMonths(12);
+                setCustomMonths('');
                 setUserNote('');
                 setShowSuccessModal(true);
                 // Send notification
@@ -146,16 +154,16 @@ export default function ChitFundRequestScreen({ navigation }) {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
+            style={[styles.container, { backgroundColor: colors.cardBackground }]}
         >
             {/* ── Header ────────────────────────────────────── */}
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color="#2e7d32" />
                 </TouchableOpacity>
                 <View>
-                    <Text style={styles.headerTitle}>Chit Fund</Text>
-                    <Text style={styles.headerSub}>{myPlans.length} request{myPlans.length !== 1 ? 's' : ''} submitted</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Chit Fund</Text>
+                    <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{myPlans.length} request{myPlans.length !== 1 ? 's' : ''} submitted</Text>
                 </View>
                 <TouchableOpacity onPress={() => { setActiveTab('new'); }} style={styles.newBtn}>
                     <Ionicons name="add" size={20} color="#FFFFFF" />
@@ -164,13 +172,13 @@ export default function ChitFundRequestScreen({ navigation }) {
             </View>
 
             {/* ── Tabs ──────────────────────────────────────── */}
-            <View style={styles.tabBar}>
+            <View style={[styles.tabBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
                 <TouchableOpacity
                     style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
                     onPress={() => setActiveTab('requests')}
                 >
-                    <Ionicons name="list" size={16} color={activeTab === 'requests' ? '#2e7d32' : '#666'} />
-                    <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
+                    <Ionicons name="list" size={16} color={activeTab === 'requests' ? '#2e7d32' : colors.textSecondary} />
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'requests' && styles.tabTextActive]}>
                         My Requests
                     </Text>
                     {myPlans.length > 0 && (
@@ -183,8 +191,8 @@ export default function ChitFundRequestScreen({ navigation }) {
                     style={[styles.tab, activeTab === 'new' && styles.tabActive]}
                     onPress={() => setActiveTab('new')}
                 >
-                    <Ionicons name="paper-plane" size={16} color={activeTab === 'new' ? '#2e7d32' : '#666'} />
-                    <Text style={[styles.tabText, activeTab === 'new' && styles.tabTextActive]}>
+                    <Ionicons name="paper-plane" size={16} color={activeTab === 'new' ? '#2e7d32' : colors.textSecondary} />
+                    <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'new' && styles.tabTextActive]}>
                         New Request
                     </Text>
                 </TouchableOpacity>
@@ -225,8 +233,8 @@ export default function ChitFundRequestScreen({ navigation }) {
                         /* Empty state */
                         <View style={styles.emptyState}>
                             <Text style={styles.emptyEmoji}>📋</Text>
-                            <Text style={styles.emptyTitle}>No Requests Yet</Text>
-                            <Text style={styles.emptySubtitle}>
+                            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Requests Yet</Text>
+                            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                                 Submit your first chit fund request and start your gold saving journey.
                             </Text>
                             <TouchableOpacity style={styles.emptyBtn} onPress={() => setActiveTab('new')}>
@@ -245,7 +253,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                             return (
                                 <TouchableOpacity
                                     key={plan._id}
-                                    style={[styles.planCard, { borderLeftColor: cfg.color }]}
+                                    style={[styles.planCard, { borderLeftColor: cfg.color, backgroundColor: colors.background, borderColor: colors.border }]}
                                     onPress={() => setExpandedPlan(isExpanded ? null : plan._id)}
                                     activeOpacity={0.85}
                                 >
@@ -258,7 +266,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                                             {plan.requestName ? (
                                                 <Text style={styles.cardRequestName}>📝 {plan.requestName}</Text>
                                             ) : null}
-                                            <Text style={styles.cardDate}>
+                                            <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                                                 Submitted: {formatDate(plan.createdAt)}
                                             </Text>
                                         </View>
@@ -383,7 +391,7 @@ export default function ChitFundRequestScreen({ navigation }) {
             {activeTab === 'new' && (
                 <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
                     {/* User Info Card */}
-                    <View style={styles.userCard}>
+                    <View style={[styles.userCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                         <View style={styles.avatarCircle}>
                             <Text style={styles.avatarText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
                         </View>
@@ -426,7 +434,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>2. Request Name <Text style={styles.requiredStar}>*</Text></Text>
                         <TextInput
-                            style={[styles.nameInput, !requestName.trim() && styles.nameInputEmpty]}
+                            style={[styles.nameInput, { backgroundColor: colors.background, color: colors.text }, !requestName.trim() && styles.nameInputEmpty]}
                             placeholder="e.g. My Gold Savings Plan"
                             placeholderTextColor="#555"
                             value={requestName}
@@ -442,7 +450,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                         <View style={styles.amountRow}>
                             <View style={styles.rupeeBox}><Text style={styles.rupeeSign}>₹</Text></View>
                             <TextInput
-                                style={styles.amountInput}
+                                style={[styles.amountInput, { backgroundColor: colors.background, color: colors.text }]}
                                 placeholder="e.g. 1000"
                                 placeholderTextColor="#555"
                                 keyboardType="numeric"
@@ -461,18 +469,36 @@ export default function ChitFundRequestScreen({ navigation }) {
                                 <TouchableOpacity
                                     key={m}
                                     style={[styles.monthChip, totalMonths === m && styles.monthChipActive]}
-                                    onPress={() => setTotalMonths(m)}
+                                    onPress={() => {
+                                        setTotalMonths(m);
+                                        setCustomMonths('');
+                                    }}
                                 >
                                     <Text style={[styles.monthChipNum, totalMonths === m && { color: '#FFD700' }]}>{m}</Text>
                                     <Text style={[styles.monthChipSub, totalMonths === m && { color: '#FFD700' }]}>mo</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
+                        <TextInput
+                            style={[styles.customMonthsInput, { backgroundColor: colors.background, color: colors.text }]}
+                            placeholder="Enter custom months "
+                            placeholderTextColor="#555"
+                            keyboardType="numeric"
+                            value={customMonths}
+                            onChangeText={(text) => {
+                                const cleaned = text.replace(/[^0-9]/g, '');
+                                setCustomMonths(cleaned);
+                                if (cleaned) {
+                                    setTotalMonths(Number(cleaned));
+                                }
+                            }}
+                        />
+                        <Text style={styles.minNote}>You can choose a preset or enter any number of months manually</Text>
                     </View>
 
                     {/* Summary */}
                     {monthlyAmount ? (
-                        <View style={styles.summaryCard}>
+                        <View style={[styles.summaryCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                             <Text style={styles.summaryCardTitle}>📊 Plan Summary</Text>
                             {[
                                 ['Metal', metalType === 'gold' ? '🪙 Gold' : '⚪ Silver'],
@@ -495,7 +521,7 @@ export default function ChitFundRequestScreen({ navigation }) {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>5. Note to Admin (Optional)</Text>
                         <TextInput
-                            style={styles.noteInput}
+                            style={[styles.noteInput, { backgroundColor: colors.background, color: colors.text }]}             
                             placeholder="Any specific requirements..."
                             placeholderTextColor="#555"
                             value={userNote}
@@ -701,6 +727,11 @@ const styles = StyleSheet.create({
     monthChipActive: { borderColor: '#2e7d32', backgroundColor: '#f9fdf9', shadowColor: '#2e7d32', shadowOpacity: 0.1, shadowRadius: 5, elevation: 1 },
     monthChipNum: { color: '#81c784', fontSize: 18, fontWeight: 'bold' },
     monthChipSub: { color: '#a5d6a7', fontSize: 11, fontWeight: 'bold' },
+    customMonthsInput: {
+        backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#e0e0e0',
+        color: '#1b3223', paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '600',
+        marginTop: 14,
+    },
     summaryCard: {
         backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20,
         marginBottom: 24, borderWidth: 1, borderColor: '#e8f5e9',

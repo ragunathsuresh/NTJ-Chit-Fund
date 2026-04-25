@@ -15,10 +15,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import SidebarModal from '../components/SidebarModal';
+import { useTheme } from '../context/ThemeContext';
+import AdminNotificationBanner from '../components/AdminNotificationBanner';
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
+    const { colors, isDark } = useTheme();
     const { user, refreshUser } = useAuth();
     const [rates, setRates] = useState({ gold: null, silver: null });
     const [refreshing, setRefreshing] = useState(false);
@@ -71,19 +74,23 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const RateCard = ({ brandName, metal, rate, color, icon, onPress }) => (
-        <TouchableOpacity style={styles.rateCard} onPress={onPress} activeOpacity={0.7}>
+        <TouchableOpacity
+            style={[styles.rateCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
             <View style={styles.rateHeader}>
                 <View style={[styles.iconContainer, { backgroundColor: color }]}>
                     <Text style={styles.iconText}>{icon}</Text>
                 </View>
                 <View>
-                    <Text style={styles.brandName}>{brandName}</Text>
-                    <Text style={styles.metalTitle}>{metal} Rate</Text>
-                    <Text style={styles.metalSubtitle}>
+                    <Text style={[styles.brandName, { color: colors.textSecondary }]}>{brandName}</Text>
+                    <Text style={[styles.metalTitle, { color: colors.text }]}>{metal} Rate</Text>
+                    <Text style={[styles.metalSubtitle, { color: colors.textSecondary }]}>
                         {rate?.purity || (metal === 'Gold' ? '24K • 99.9%' : 'Fine Silver • 99.9%')}
                     </Text>
                 </View>
-                <View style={[styles.trendBadge, { backgroundColor: '#1E3E2B' }]}>
+                <View style={[styles.trendBadge, { backgroundColor: isDark ? '#1E3E2B' : colors.cardBackground }]}>
                     <Ionicons name="arrow-up" size={12} color="#4CAF50" />
                     <Text style={styles.trendText}>+1.24%</Text>
                 </View>
@@ -95,7 +102,7 @@ const HomeScreen = ({ navigation }) => {
                     <Text style={styles.priceValue}>
                         {formatCurrency(rate?.sellPrice)}
                     </Text>
-                    <Text style={styles.lastUpdated}>Last updated: {formatTime(lastUpdated)}</Text>
+                    <Text style={[styles.lastUpdated, { color: colors.textSecondary }]}>Last updated: {formatTime(lastUpdated)}</Text>
                 </View>
                 {/* Visual element representing metal bar/ingot */}
                 <View style={[styles.metalVisual, { backgroundColor: color, opacity: 0.8 }]} />
@@ -104,15 +111,20 @@ const HomeScreen = ({ navigation }) => {
     );
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+
+            {/* Admin Notification Banner — overlays at top, swipeable */}
+            <View style={styles.notificationOverlay} pointerEvents="box-none">
+                <AdminNotificationBanner />
+            </View>
 
             {/* Header Section */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => setSidebarVisible(true)}>
                     <Ionicons name="menu" size={28} color="#2e7d32" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>NTJ</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>NTJ</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('AppSettings')}>
                     <Ionicons name="settings-outline" size={24} color="#2e7d32" />
                 </TouchableOpacity>
@@ -126,33 +138,33 @@ const HomeScreen = ({ navigation }) => {
             >
                 {/* Welcome Section */}
                 <View style={styles.welcomeSection}>
-                    <Text style={styles.welcomeText}>WELCOME BACK</Text>
-                    <Text style={styles.userName}>Hello, <Text style={styles.nameHighlight}>{user?.name?.split(' ')[0] || 'User'}</Text></Text>
+                    <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>WELCOME BACK</Text>
+                    <Text style={[styles.userName, { color: colors.text }]}>Hello, <Text style={styles.nameHighlight}>{user?.name?.split(' ')[0] || 'User'}</Text></Text>
 
                     {/* Holdings Pill - Increased Size */}
                     <TouchableOpacity
-                        style={styles.holdingsPill}
+                        style={[styles.holdingsPill, { backgroundColor: colors.background, borderColor: colors.border }]}
                         onPress={() => navigation.navigate('Portfolio')}
                     >
-                        <Text style={styles.holdingsLabel}>CURRENT HOLDINGS</Text>
+                        <Text style={[styles.holdingsLabel, { color: colors.textSecondary }]}>CURRENT HOLDINGS</Text>
                         <View style={styles.holdingsRow}>
                             <View style={styles.holdingItem}>
                                 <View style={[styles.dot, { backgroundColor: '#2e7d32', width: 12, height: 12, borderRadius: 6 }]} />
-                                <Text style={styles.holdingText}>{formatGrams(user?.goldBalance)} g</Text>
-                                <Text style={styles.holdingSubText}>Gold</Text>
+                                <Text style={[styles.holdingText, { color: colors.text }]}>{formatGrams(user?.goldBalance)} g</Text>
+                                <Text style={[styles.holdingSubText, { color: colors.textTertiary }]}>Gold</Text>
                             </View>
-                            <View style={styles.divider} />
+                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
                             <View style={styles.holdingItem}>
                                 <View style={[styles.dot, { backgroundColor: '#81c784', width: 12, height: 12, borderRadius: 6 }]} />
-                                <Text style={styles.holdingText}>{formatGrams(user?.silverBalance)} g</Text>
-                                <Text style={styles.holdingSubText}>Silver</Text>
+                                <Text style={[styles.holdingText, { color: colors.text }]}>{formatGrams(user?.silverBalance)} g</Text>
+                                <Text style={[styles.holdingSubText, { color: colors.textTertiary }]}>Silver</Text>
                             </View>
                         </View>
                     </TouchableOpacity>
 
                     <View style={styles.liveIndicator}>
                         <View style={styles.liveDot} />
-                        <Text style={styles.liveText}>MARKET LIVE UPDATES</Text>
+                        <Text style={[styles.liveText, { color: colors.textSecondary }]}>MARKET LIVE UPDATES</Text>
                     </View>
                 </View>
 
@@ -181,13 +193,13 @@ const HomeScreen = ({ navigation }) => {
             {/* Action Buttons Row */}
             <View style={styles.actionRow}>
                 <TouchableOpacity
-                    style={[styles.actionBtn, styles.requestBtn]}
+                    style={[styles.actionBtn, styles.requestBtn, { backgroundColor: colors.background }]}
                     onPress={() => navigation.navigate('ChitFundRequest')}
                     activeOpacity={0.85}
                 >
                     <Ionicons name="paper-plane" size={20} color="#2e7d32" />
                     <Text style={styles.requestBtnText}>Request</Text>
-                    <Text style={styles.actionBtnSub}>Start a Plan</Text>
+                    <Text style={[styles.actionBtnSub, { color: colors.textSecondary }]}>Start a Plan</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -215,6 +227,14 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f1f8e9',
+    },
+    notificationOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9998,
+        pointerEvents: 'box-none',
     },
     header: {
         flexDirection: 'row',

@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const SidebarModal = ({ visible, onClose, navigation }) => {
+    const { colors } = useTheme();
     const { user, logout } = useAuth();
     const slideAnim = React.useRef(new Animated.Value(-300)).current;
 
@@ -61,12 +63,13 @@ const SidebarModal = ({ visible, onClose, navigation }) => {
                 <Animated.View
                     style={[
                         styles.sidebar,
+                        { backgroundColor: colors.background },
                         { transform: [{ translateX: slideAnim }] }
                     ]}
                 >
                     {/* User Header */}
                     <TouchableOpacity
-                        style={styles.userHeader}
+                        style={[styles.userHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.border }]}
                         onPress={() => navigateTo('Main', { screen: 'Profile' })}
                     >
                         <Image
@@ -76,10 +79,10 @@ const SidebarModal = ({ visible, onClose, navigation }) => {
                             style={styles.avatar}
                         />
                         <View style={styles.userInfo}>
-                            <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
-                            <Text style={styles.viewProfile}>View Profile</Text>
+                            <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'User Name'}</Text>
+                            <Text style={[styles.viewProfile, { color: colors.primary }]}>View Profile</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#2e7d32" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.primary} />
                     </TouchableOpacity>
 
                     {/* Menu Items */}
@@ -90,14 +93,14 @@ const SidebarModal = ({ visible, onClose, navigation }) => {
                                 style={styles.menuItem}
                                 onPress={() => navigateTo(item.screen, item.params)}
                             >
-                                <Ionicons name={item.icon} size={22} color="#2e7d32" />
-                                <Text style={styles.menuText}>{item.name}</Text>
+                                <Ionicons name={item.icon} size={22} color={colors.primary} />
+                                <Text style={[styles.menuText, { color: colors.text }]}>{item.name}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
 
                     {/* Logout Button at Bottom */}
-                    <View style={styles.bottomSection}>
+                    <View style={[styles.bottomSection, { borderTopColor: colors.border, backgroundColor: colors.cardBackground }]}>
                         <TouchableOpacity
                             style={styles.logoutButton}
                             onPress={() => {
@@ -111,7 +114,7 @@ const SidebarModal = ({ visible, onClose, navigation }) => {
 
                         {/* Footer */}
                         <View style={styles.footer}>
-                            <Text style={styles.footerText}>NTJ App v2.4.0</Text>
+                            <Text style={[styles.footerText, { color: colors.textSecondary }]}>NTJ App v2.4.0</Text>
                         </View>
                     </View>
                 </Animated.View>

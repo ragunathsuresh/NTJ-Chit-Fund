@@ -3,7 +3,112 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const ChitFund = require('../models/ChitFund');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const { sendChitFundApprovalEmail, sendChitFundRejectionEmail } = require('../services/emailService');
+
+const buildPaymentSchedule = (plan) => {
+    const baseDate = new Date(plan.startDate || plan.approvedAt || plan.createdAt || new Date());
+    const payments = [];
+
+    for (let i = 1; i <= Number(plan.totalMonths || 0); i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        dueDate.setDate(1);
+
+        payments.push({
+            month: i,
+            dueDate,
+            amount: plan.monthlyAmount,
+            status: 'pending',
+        });
+    }
+
+    return payments;
+};
+
+const syncPlanPaymentsFromOrders = async (plan) => {
+    if (!plan?._id || !plan.userId) {
+        return plan;
+    }
+
+    let changed = false;
+    if (
+        ['approved', 'active', 'completed'].includes(plan.status) &&
+        (!Array.isArray(plan.payments) || plan.payments.length === 0) &&
+        Number(plan.totalMonths) > 0
+    ) {
+        plan.payments = buildPaymentSchedule(plan);
+        changed = true;
+    }
+
+    if (!Array.isArray(plan.payments) || plan.payments.length === 0) {
+        if (changed) {
+            await plan.save();
+        }
+        return plan;
+    }
+
+    const successOrders = await Order.find({
+        userId: plan.userId,
+        chitFundPlanId: plan._id,
+        status: 'Success',
+    })
+        .select('chitFundMonth paymentId orderId createdAt')
+        .sort({ createdAt: 1 });
+
+    const paidMonths = new Map();
+    for (const order of successOrders) {
+        const month = Number(order.chitFundMonth);
+        if (!month || paidMonths.has(month)) continue;
+        paidMonths.set(month, order);
+    }
+
+    plan.payments.forEach((payment) => {
+        const matchedOrder = paidMonths.get(Number(payment.month));
+        if (matchedOrder) {
+            if (payment.status !== 'paid') {
+                payment.status = 'paid';
+                changed = true;
+            }
+            if (!payment.paidDate) {
+                payment.paidDate = matchedOrder.createdAt || new Date();
+                changed = true;
+            }
+            const nextTxnId = matchedOrder.paymentId || matchedOrder.orderId || payment.upiTransactionId;
+            if (payment.upiTransactionId !== nextTxnId) {
+                payment.upiTransactionId = nextTxnId;
+                changed = true;
+            }
+        }
+    });
+
+    const paidCount = plan.payments.filter((payment) => payment.status === 'paid').length;
+    if ((plan.paidMonths || 0) !== paidCount) {
+        plan.paidMonths = paidCount;
+        changed = true;
+    }
+
+    const nextPayment = plan.payments.find((payment) => payment.status !== 'paid') || null;
+    const nextDueDate = nextPayment ? nextPayment.dueDate : null;
+    if (String(plan.nextDueDate || '') !== String(nextDueDate || '')) {
+        plan.nextDueDate = nextDueDate;
+        changed = true;
+    }
+
+    const expectedStatus = paidCount >= plan.totalMonths
+        ? 'completed'
+        : (paidCount > 0 ? 'active' : (plan.status === 'completed' ? 'approved' : plan.status));
+    if (plan.status !== expectedStatus && ['approved', 'active', 'completed'].includes(plan.status)) {
+        plan.status = expectedStatus;
+        changed = true;
+    }
+
+    if (changed) {
+        await plan.save();
+    }
+
+    return plan;
+};
 
 // ─────────────────────────────────────────────────────────────
 // USER ROUTES
@@ -32,8 +137,8 @@ router.post('/request', protect, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Minimum monthly amount is ₹100' });
         }
 
-        if (totalMonths < 1 || totalMonths > 36) {
-            return res.status(400).json({ success: false, message: 'Total months must be between 1 and 36' });
+        if (!Number.isInteger(Number(totalMonths)) || Number(totalMonths) < 1) {
+            return res.status(400).json({ success: false, message: 'Total months must be at least 1' });
         }
 
         const chitFund = await ChitFund.create({
@@ -64,6 +169,7 @@ router.post('/request', protect, async (req, res) => {
 router.get('/my', protect, async (req, res) => {
     try {
         const plans = await ChitFund.find({ userId: req.user._id }).sort({ createdAt: -1 });
+        await Promise.all(plans.map((plan) => syncPlanPaymentsFromOrders(plan)));
         res.json({ success: true, data: plans });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -79,6 +185,9 @@ router.get('/active', protect, async (req, res) => {
             userId: req.user._id,
             status: { $in: ['approved', 'active'] }
         });
+        if (active) {
+            await syncPlanPaymentsFromOrders(active);
+        }
         res.json({ success: true, data: active || null });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });

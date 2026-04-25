@@ -206,7 +206,7 @@ router.post('/admin/:id/approve', protect, async (req, res) => {
                         paymentRecord.status = 'paid';
                         paymentRecord.paidDate = new Date();
                         paymentRecord.upiTransactionId = order.paymentId || order.orderId;
-                        plan.paidMonths = (plan.paidMonths || 0) + 1;
+                        plan.paidMonths = plan.payments.filter(p => p.status === 'paid').length;
 
                         const nextPmt = plan.payments.find(p => p.status !== 'paid');
                         plan.nextDueDate = nextPmt ? nextPmt.dueDate : null;

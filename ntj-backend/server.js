@@ -64,6 +64,7 @@ app.use('/api/kyc', kycRoutes);
 app.use('/api/rates', require('./routes/rates'));
 app.use('/api/chitfund', require('./routes/chitfund'));
 app.use('/api/upi-config', require('./routes/upiConfig'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -96,8 +97,8 @@ const getLocalIp = () => {
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
             if (net.family === 'IPv4' && !net.internal) {
-                // If we find an IP matching the 10.20 range (which Metro is using), prioritize it
-                if (net.address.startsWith('10.20.')) return net.address;
+                // If we find an IP matching the 10.164 range (which Metro is using), prioritize it
+                if (net.address.startsWith('10.164.')) return net.address;
                 fallbackIp = net.address;
             }
         }

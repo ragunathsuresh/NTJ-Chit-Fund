@@ -14,24 +14,15 @@ const UpiConfig = require('../models/UpiConfig');
  */
 router.get('/active', protect, async (req, res) => {
     try {
-        // Get the active UPI from the existing upi_configs collection
         const config = await UpiConfig.findOne({ isActive: true })
+            .sort({ updatedAt: -1, createdAt: -1 })
             .select('upiId label department');
 
         if (!config) {
-            // Fallback: return the most recently created config
-            const fallback = await UpiConfig.findOne()
-                .sort({ createdAt: -1 })
-                .select('upiId label department');
-
-            if (!fallback) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'No UPI configuration found. Please contact admin.',
-                });
-            }
-
-            return res.json({ success: true, data: fallback, isFallback: true });
+            return res.status(404).json({
+                success: false,
+                message: 'No active UPI configuration found. Please contact admin.',
+            });
         }
 
         res.json({ success: true, data: config });

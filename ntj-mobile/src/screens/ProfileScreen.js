@@ -12,8 +12,10 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 
 const ProfileScreen = ({ navigation }) => {
+    const { colors } = useTheme();
     const { user, logout, refreshUser } = useAuth();
 
     useFocusEffect(
@@ -33,14 +35,14 @@ const ProfileScreen = ({ navigation }) => {
         );
     };
 
-    const MenuItem = ({ icon, title, subtitle, onPress, badge, color = "#1b3223" }) => (
+    const MenuItem = ({ icon, title, subtitle, onPress, badge, color = colors.text }) => (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={styles.menuIconContainer}>
                 {icon}
             </View>
             <View style={styles.menuTextContainer}>
                 <Text style={[styles.menuTitle, { color }]}>{title}</Text>
-                {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
+                {subtitle && <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
                 {badge && (
                     <Text style={styles.badgeText}>{badge}</Text>
                 )}
@@ -51,21 +53,21 @@ const ProfileScreen = ({ navigation }) => {
                         <Text style={styles.pendingText}>Pending</Text>
                     </View>
                 )}
-                <Ionicons name="chevron-forward" size={20} color="#666" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
             </View>
         </TouchableOpacity>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>My Profile</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>My Profile</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Profile Card */}
-                <View style={styles.profileCard}>
+                <View style={[styles.profileCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                         <View style={styles.avatarContainer}>
                              <Image
                                 source={{ uri: user?.profilePhoto || 'https://ui-avatars.com/api/?name=' + (user?.name || 'User') + '&background=2e7d32&color=fff' }}
@@ -73,23 +75,23 @@ const ProfileScreen = ({ navigation }) => {
                             />
                         </View>
 
-                    <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
-                    <Text style={styles.userPhone}>{user?.phone || '+91 XXXXX XXXXX'}</Text>
+                    <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'User Name'}</Text>
+                    <Text style={[styles.userPhone, { color: colors.textSecondary }]}>{user?.phone || '+91 XXXXX XXXXX'}</Text>
 
                     <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Gold Holdings</Text>
+                        <View style={[styles.statItem, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Gold Holdings</Text>
                             <Text style={styles.statValue}>{(user?.goldBalance || 0).toFixed(3)}g</Text>
                         </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Silver Holdings</Text>
+                        <View style={[styles.statItem, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Silver Holdings</Text>
                             <Text style={styles.statValue}>{(user?.silverBalance || 0).toFixed(3)}g</Text>
                         </View>
                     </View>
                 </View>
 
-                <Text style={styles.sectionHeader}>ACCOUNT</Text>
-                <View style={styles.menuGroup}>
+                <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>ACCOUNT</Text>
+                <View style={[styles.menuGroup, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <MenuItem
                         icon={<Ionicons name="person-outline" size={22} color="#2e7d32" />}
                         title="Edit Profile"
@@ -105,8 +107,8 @@ const ProfileScreen = ({ navigation }) => {
                     />
                 </View>
 
-                <Text style={styles.sectionHeader}>SUPPORT</Text>
-                <View style={styles.menuGroup}>
+                <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>SUPPORT</Text>
+                <View style={[styles.menuGroup, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <MenuItem
                         icon={<Ionicons name="headset-outline" size={22} color="#2e7d32" />}
                         title="Help & Support"
